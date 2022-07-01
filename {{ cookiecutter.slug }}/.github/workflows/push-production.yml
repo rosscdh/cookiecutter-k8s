@@ -1,0 +1,65 @@
+name: PROD - Build Test, Push image to ECR and Generate k8s Manifest for ArgoCD
+on:
+  push:
+    branches:
+      - 'production/*'
+jobs:
+  push-to-ecr:
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: production
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: django
+          POSTGRES_PASSWORD: djangopassword
+          POSTGRES_DB: {{ cookiecutter.slug }}_dev
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+        with:
+          ref: {{ "${{ github.head_ref }}" }}
+      - name: Login to ECR
+        id: ecr
+        uses: jwalton/gh-ecr-login@v1
+        with:
+          access-key-id: {{ "${{ secrets.AWS_ACCESS_KEY_ID }}" }}
+          secret-access-key: {{ "${{ secrets.AWS_SECRET_ACCESS_KEY }}" }}
+          region: eu-west-2
+      - name: Build Test and Push to ECR
+        run: |
+          export CURRENT_RELEASE_TAG=$(echo ${GITHUB_SHA} | cut -c1-7)
+          make build ci-test
+          make push
+      - name: CD Release for ArgoCD application
+        uses: stefanprodan/kube-tools@v1
+        with:
+          kustomize: 4.4.1
+          command: |
+            export CURRENT_RELEASE_TAG=$(echo ${GITHUB_SHA} | cut -c1-7)
+            make render-k8s
+      - name: Commit Back
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "[ci] Updated rendered k8s yaml"
+          branch: master
+          file_pattern: k8s/*
+          push_options: '--force'
+          commit_options: '--no-verify --signoff'
+          add_options: '--all'
+          skip_checkout: true
+      - name: Sync ArgoCD Application
+        uses: omegion/argocd-app-actions@v0.2.0
+        with:
+          address: "argocd.stepoutoftheriver.com"
+          token: {{ "${{ secrets.PRODUCTION_ARGOCD_TOKEN }}" }}
+          appName: "{{ cookiecutter.slug }}-production"

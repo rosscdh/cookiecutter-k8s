@@ -1,0 +1,23 @@
+namespace: {{ cookiecutter.slug }}-staging
+
+resources:
+- ../../base
+- ingress.yaml
+
+configMapGenerator:
+- name: {{ cookiecutter.slug }}-cm
+  literals:
+  - APP_PORT=8000
+  - DB_NAME={{ cookiecutter.slug }}_dev
+  - DB_PASS=djangopassword
+  - DB_USER=django
+  - POSTGRES_USER=django
+  - POSTGRES_DB={{ cookiecutter.slug }}_dev
+  - POSTGRES_PASSWORD=djangopassword
+  - DEFAULT_SENDER_EMAIL="mail+dev@momentsofspace.com"
+  - DEFAULT_SENDER_NAME="Moments of Space [Dev]"
+
+secretGenerator:
+- name: {{ cookiecutter.slug }}-app-secret
+  literals:
+  - MY_SECRET=secret-value

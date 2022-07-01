@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ cookiecutter.slug }}
+  name: {{ cookiecutter.slug }}-svc
+spec:
+  ports:
+    - name: web
+      port: 8000
+      targetPort: 8000
+    - name: static
+      port: 80
+      targetPort: 80
+  selector:
+    app: {{ cookiecutter.slug }}

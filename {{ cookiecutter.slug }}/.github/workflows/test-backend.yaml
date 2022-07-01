@@ -1,0 +1,59 @@
+name: Lint, Build and Test
+on:
+  push:
+    branches:
+      - '**'
+      # not these ones as they test themselves
+      - '!production/*'
+      - '!staging/*'
+      - '!uat/*'
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: checkout repo
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.9.7"
+          cache: pip
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v2.0.3
+  build-and-test:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: django
+          POSTGRES_PASSWORD: djangopassword
+          POSTGRES_DB: {{ cookiecutter.slug }}_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v2
+    - name: build and test application
+      run: make build ci-test

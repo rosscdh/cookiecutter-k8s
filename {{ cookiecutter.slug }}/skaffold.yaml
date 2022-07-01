@@ -1,0 +1,27 @@
+apiVersion: skaffold/v2beta10
+kind: Config
+metadata:
+  name: {{ cookiecutter.slug }}
+
+build:
+  artifacts:
+  - image: {{ cookiecutter.slug }}:latest
+    docker:
+      dockerfile: Dockerfile
+
+profiles:
+- name: sandbox
+  deploy:
+    kustomize:
+      paths:
+      - k8s/overlays/sandbox
+- name: staging
+  deploy:
+    kustomize:
+      paths:
+      - k8s/overlays/staging
+- name: staging
+  deploy:
+    kustomize:
+      paths:
+      - k8s/overlays/production

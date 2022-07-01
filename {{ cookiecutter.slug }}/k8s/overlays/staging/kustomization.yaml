@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: staging
+
+images:
+- name: {{ cookiecutter.slug }}
+  newName: 439304389429.dkr.ecr.eu-west-2.amazonaws.com/{{ cookiecutter.slug }}
+  newTag: 426c035
+
+resources:
+- ../../base
+- ./external-secrets.yaml
+- ./ingress.yaml
+
+
+patches:
+- target:
+    kind: Deployment
+    name: {{ cookiecutter.slug }}
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/args
+      value:
+        - {{ cookiecutter.slug }}.wsgi:application
+        - -b
+        - 0.0.0.0:8000
+        - --threads
+        - '3'
+        - -w
+        - '3'
+
+  
+
+configMapGenerator:
+- behavior: merge
+  literals:
+  - SITE_ID=2
+  - ENABLE_REDIS_CACHE="True"
+  - DEFAULT_SENDER_EMAIL="mail+staging@momentsofspace.com"
+  - DEFAULT_SENDER_NAME="Moments of Space [Staging]"
+  - DEFAULT_EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+  - REDIS_URL="redis://redis.staging.svc:6379/0"
+  - RQ_JOB_TIMEOUT=30
+  - NOTIFICATION_SCHEDULING_ON="True"
+  - RQ_REDIS_HOST=redis.staging.svc
+  - RQ_REDIS_PORT=6379
+  - RQ_REDIS_DB=0
+  - MIXPANEL_TOKEN=f6f07aea49d4aa89ec04f8423d13bc83
+  name: {{ cookiecutter.slug }}-app-config
+
+
+secretGenerator:
+- name: {{ cookiecutter.slug }}-app-secret
+  literals:
+  - MY_SECRET=secret-value

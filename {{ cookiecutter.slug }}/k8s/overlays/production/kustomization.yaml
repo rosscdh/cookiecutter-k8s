@@ -1,0 +1,69 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: production
+
+images:
+- name: {{ cookiecutter.slug }}
+  newName: 439304389429.dkr.ecr.eu-west-2.amazonaws.com/{{ cookiecutter.slug }}
+  newTag: c2521ca
+
+
+resources:
+- ../../base
+- ./external-secrets.yaml
+- ./hpa.yaml
+- ./ingress.yaml
+
+patchesJson6902:
+- target:
+    kind: Deployment
+    name: {{ cookiecutter.slug }}
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/args
+      value:
+        - {{ cookiecutter.slug }}.wsgi:application
+        - -b
+        - 0.0.0.0:8000
+        - --threads
+        - '3'
+        - -w
+        - '5'
+    - op: replace
+      path: /spec/template/spec/containers/0/resources
+      value:
+        requests:
+          memory: "512Mi"
+          cpu: "250m"
+        limits:
+          memory: "2200Mi"
+          cpu: "900m"
+
+
+configMapGenerator:
+- behavior: replace
+  files:
+  - Caddyfile=Caddyfile
+  name: caddy-file-cm
+- behavior: merge
+  literals:
+  - SITE_ID=4
+  - ENABLE_REDIS_CACHE="True"
+  - DEFAULT_EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+  - DEFAULT_SENDER_EMAIL="mail@momentsofspace.com"
+  - DEFAULT_SENDER_NAME="Moments of Space"
+  - REDIS_URL="redis://redis.production.svc:6379/1"
+  - RQ_JOB_TIMEOUT=30
+  - NOTIFICATION_SCHEDULING_ON="True"
+  - RQ_REDIS_HOST=redis.production.svc
+  - RQ_REDIS_PORT=6379
+  - RQ_REDIS_DB=1
+  - MIXPANEL_TOKEN=5dafb23d38950150c0c6ccf818a9af5c
+  name: {{ cookiecutter.slug }}-app-config
+
+
+secretGenerator:
+- name: {{ cookiecutter.slug }}-app-secret
+  literals:
+  - MY_SECRET=secret-value

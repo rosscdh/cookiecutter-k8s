@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ cookiecutter.slug }}
+  name: {{ cookiecutter.slug }}
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: {{ cookiecutter.slug }}
+  template:
+    metadata:
+      labels:
+        app: {{ cookiecutter.slug }}
+    spec:
+      volumes:
+        - name: static-media-volume
+          emptyDir: {}
+        - name: caddy-file-volume
+          configMap:
+            name: caddy-file-cm
+
+      restartPolicy: Always
+
+      containers:
+        - name: app
+          image: {{ cookiecutter.slug }}:latest
+          ports:
+          - name: api
+            containerPort: 8000
+          args:
+            - {{ cookiecutter.slug }}.wsgi:application
+            - -b
+            - 0.0.0.0:8000
+            - '--workers'
+            - '3'
+            - -c
+            - {{ cookiecutter.slug }}/gunicorn.py
+          livenessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+            tcpSocket:
+              port: api
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+            tcpSocket:
+              port: api
+          envFrom:
+          - configMapRef:
+              name: {{ cookiecutter.slug }}-app-config
+          - secretRef:
+              name: {{ cookiecutter.slug }}-app-secret
+          volumeMounts:
+          - name: static-media-volume
+            mountPath: /static
+          resources: {}
+
+        - name: caddy
+          image: caddy:2-alpine
+          ports:
+          - name: web
+            containerPort: 80
+          - name: admin
+            containerPort: 2019
+          livenessProbe:
+            tcpSocket:
+              port: web
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: web
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          envFrom: []
+          volumeMounts:
+          - name: caddy-file-volume
+            mountPath: /etc/caddy/Caddyfile
+            subPath: Caddyfile
+          - name: static-media-volume
+            mountPath: /var/www/static
+          resources: {}

@@ -1,0 +1,12 @@
+http://api.stepoutoftheriver.com:80
+
+encode gzip zstd
+
+root * /var/www/
+
+@notStatic {
+  not path /static/* /media/* /favicon.ico
+}
+reverse_proxy @notStatic app:8000
+
+file_server
